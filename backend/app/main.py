@@ -1,7 +1,6 @@
-from webbrowser import get
-from fastapi.middleware.cors import CORSMiddleware
-
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.api.v1 import auth, products
 
 app = FastAPI()
 
@@ -19,6 +18,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
+
 
 @app.get("/new")
 def read_item():
