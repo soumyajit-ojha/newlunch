@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.v1 import auth, products, ecommerce
+from app.api.v1 import auth, products, ecommerce, profile
 
 app = FastAPI()
 
@@ -22,6 +22,7 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(ecommerce.router, prefix="/api/v1/shop", tags=["E-commerce"])
+app.include_router(profile.router, prefix="/api/v1/user", tags=["User Profile"])
 
 @app.get("/new")
 def read_item():

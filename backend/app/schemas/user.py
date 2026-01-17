@@ -1,8 +1,9 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
-from app.models.user import UserRole
+from typing import Optional, List
+from app.models.user import UserRole, AddressType
 
-
+# from_attributes: Allows Pydantic to read SQLAlchemy models
+# User-Auth Schemas
 class UserBase(BaseModel):
     email: EmailStr
     first_name: str
@@ -20,7 +21,7 @@ class UserResponse(UserBase):
     is_active: bool
 
     class Config:
-        from_attributes = True  # Allows Pydantic to read SQLAlchemy models
+        from_attributes = True
 
 
 class Token(BaseModel):
@@ -32,3 +33,42 @@ class Token(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+
+# --- Address Schemas ---
+class AddressBase(BaseModel):
+    full_name: str
+    phone_number: str
+    pincode: str
+    locality: str
+    address_line: str
+    city: str
+    state: str
+    landmark: Optional[str] = None
+    alternate_phone: Optional[str] = None
+    address_type: AddressType = AddressType.HOME
+
+
+class AddressCreate(AddressBase):
+    pass
+
+
+class AddressResponse(AddressBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+
+# --- Profile Schemas ---
+class ProfileUpdate(BaseModel):
+    gender: Optional[str] = None
+    # Note: Profile picture is handled via File Upload, not JSON
+
+
+class ProfileResponse(BaseModel):
+    gender: Optional[str]
+    profile_picture: Optional[str]
+
+    class Config:
+        from_attributes = True
