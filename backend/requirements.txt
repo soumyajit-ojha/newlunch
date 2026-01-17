@@ -1,9 +1,10 @@
 fastapi
 uvicorn
-# sqlalchemy
-# pydantic_settings
-# python-multipart
-# alembic
+sqlalchemy
+pydantic_settings
+python-multipart
+alembic
 psycopg2-binary
 passlib[bcrypt]
-# boto3
+boto3
+pydantic[email]
