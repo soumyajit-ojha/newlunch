@@ -20,6 +20,8 @@ class User(BaseModel):
     password = Column(String(255), nullable=False)
     role = Column(Enum(UserRole), default=UserRole.BUYER)
     is_active = Column(Boolean, default=True)
-    
+
     # Relationship to products (one user can have many products)
     products = relationship("Product", back_populates="seller")
+    carts = relationship("Cart", back_populates="user")
+    wishlist = relationship("Wishlist", back_populates="user")

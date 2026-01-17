@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 
 class ProductBase(BaseModel):
@@ -28,3 +28,10 @@ class ProductResponse(ProductBase):
 
     class Config:
         from_attributes = True
+
+
+class FilterOptionsResponse(BaseModel):
+    brands: List[str]
+    ram_options: List[int]
+    network_types: List[str]
+    max_price_limit: float

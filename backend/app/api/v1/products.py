@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form, status
+from fastapi import APIRouter, Depends, UploadFile, File, Form, status, Query
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.api.deps import get_current_active_seller
@@ -6,6 +6,9 @@ from app.services.s3_service import S3Service
 from app.models.user import User
 from app.models.product import Product
 from app.schemas.product import ProductResponse
+from app.repositories.product_repo import ProductRepository
+from app.schemas.product import FilterOptionsResponse, ProductResponse
+from typing import List, Optional
 
 router = APIRouter()
 
@@ -53,3 +56,40 @@ async def add_mobile(
     db.commit()
     db.refresh(new_product)
     return new_product
+
+
+@router.get("/search", response_model=List[ProductResponse])
+def search_mobiles(
+    brand: Optional[List[str]] = Query(None),
+    ram: Optional[List[int]] = Query(None),
+    network: Optional[List[str]] = Query(None),
+    min_p: Optional[float] = None,
+    max_p: Optional[float] = None,
+    q: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """The main endpoint for the Home Page and Search Bar"""
+    return ProductRepository.search_products(db, brand, ram, network, min_p, max_p, q)
+
+
+@router.get("/filter-options", response_model=FilterOptionsResponse)
+def get_filters(db: Session = Depends(get_db)):
+    """Used by React to build the dynamic sidebar"""
+    return ProductRepository.get_filter_metadata(db)
+
+
+@router.get("/{product_id}", response_model=ProductResponse)
+def get_product_details(product_id: int, db: Session = Depends(get_db)):
+    """Retrieve a single mobile's details"""
+    from app.models.product import Product
+
+    product = (
+        db.query(Product)
+        .filter(Product.id == product_id, Product.is_active == True)
+        .first()
+    )
+    if not product:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=404, detail="Product not found")
+    return product
