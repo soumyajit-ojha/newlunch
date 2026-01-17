@@ -20,7 +20,15 @@ router = APIRouter()
 def get_my_profile(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    return UserRepository.get_profile(db, current_user.id)
+    profile = UserRepository.get_profile(db, current_user.id)
+    # If profile doesn't exist, create one with default values
+    if not profile:
+        from app.models.user import Profile
+        profile = Profile(user_id=current_user.id, gender=None, profile_picture=None)
+        db.add(profile)
+        db.commit()
+        db.refresh(profile)
+    return profile
 
 
 @router.put("/profile", response_model=ProfileResponse)
