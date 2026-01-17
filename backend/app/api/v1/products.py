@@ -78,6 +78,17 @@ def get_filters(db: Session = Depends(get_db)):
     return ProductRepository.get_filter_metadata(db)
 
 
+@router.get("/my-inventory", response_model=List[ProductResponse])
+def get_seller_inventory(
+    current_seller: User = Depends(get_current_active_seller),
+    db: Session = Depends(get_db),
+):
+    """Returns only products belonging to the logged-in seller"""
+    from app.models.product import Product
+
+    return db.query(Product).filter(Product.seller_id == current_seller.id).all()
+
+
 @router.get("/{product_id}", response_model=ProductResponse)
 def get_product_details(product_id: int, db: Session = Depends(get_db)):
     """Retrieve a single mobile's details"""

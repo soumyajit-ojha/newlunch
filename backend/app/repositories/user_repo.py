@@ -32,6 +32,10 @@ class UserRepository:
         db: Session, user_id: int, gender: str = None, pic_url: str = None
     ):
         profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+        # Create profile if it doesn't exist
+        if not profile:
+            profile = Profile(user_id=user_id, gender=None, profile_picture=None)
+            db.add(profile)
         if gender:
             profile.gender = gender
         if pic_url:
