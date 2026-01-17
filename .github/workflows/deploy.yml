@@ -1,0 +1,52 @@
+name: Deploy newlunch to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.HOST_IP }}
+          username: ${{ secrets.HOST_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e
+
+            # 1. Navigate to Project Folder
+            cd /home/ubuntu/newlunch
+
+            # 2. Pull Latest Code
+            git fetch --all
+            git reset --hard origin/main
+
+            # 3. Dynamic .env Creation (overwrite to avoid duplicates)
+            # cat > backend/.env << EOF
+            # HOST_IP=${{ secrets.HOST_IP }}
+            # SECRET_KEY=${{ secrets.SECRET_KEY }}
+            # EOF
+
+
+            # 4. Stop & Remove Old Container
+            docker stop newlunch || true
+            docker rm newlunch || true
+
+            # 5. Build Docker Image
+            docker build -t newlunch:latest .
+
+            # 6. Run Container
+            # Maps Port 8000 (External) to 8000 (Internal)
+            # Uses the backend/.env file for environment variables
+            docker run -d -p 8000:8000 --env-file backend/.env --restart unless-stopped --name newlunch newlunch:latest
+
+            # 7. Cleanup Space
+            docker image prune -f
