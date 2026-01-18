@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, status, Query
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.api.deps import get_current_active_seller
+from app.routers.deps import get_current_active_seller
 from app.services.s3_service import S3Service
 from app.models.user import User
 from app.models.product import Product

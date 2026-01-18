@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from app.api.v1 import auth, products, ecommerce, profile
+from app.routers.v1 import auth, products, ecommerce, profile
 from app.db.session import engine
 
 
