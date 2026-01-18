@@ -13,13 +13,11 @@ router = APIRouter()
 
 @router.post("/register", response_model=UserResponse)
 def register(user_in: UserCreate, db: Session = Depends(get_db)):
-    print("Input Data", str(user_in))
     return AuthService.register_user(db, user_in)
 
 
 @router.post("/login", response_model=Token)
 def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
-    print("Input Data", str(user_credentials))
     return AuthService.login_user(db, user_credentials.email, user_credentials.password)
 
 
