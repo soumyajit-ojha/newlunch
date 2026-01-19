@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, status
+from fastapi import APIRouter, Depends, UploadFile, File, status, HTTPException
 from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.routers.deps import get_current_user
@@ -11,6 +11,7 @@ from app.schemas.user import (
 )
 from app.services.s3_service import S3Service
 from app.repositories.user_repo import UserRepository
+from app.utils.log_config import logger
 from typing import List
 
 router = APIRouter()
@@ -20,10 +21,11 @@ router = APIRouter()
 def get_my_profile(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    logger.info("Get profile: user_id=%s", current_user.id)
     profile = UserRepository.get_profile(db, current_user.id)
-    # If profile doesn't exist, create one with default values
     if not profile:
         from app.models.user import Profile
+        logger.info("Creating default profile for user_id=%s", current_user.id)
         profile = Profile(user_id=current_user.id, gender=None, profile_picture=None)
         db.add(profile)
         db.commit()
@@ -37,6 +39,7 @@ def update_my_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.info("Update profile: user_id=%s", current_user.id)
     return UserRepository.update_profile(db, current_user.id, gender=data.gender)
 
 
@@ -46,9 +49,10 @@ async def upload_profile_pic(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Upload to S3 (folder 'profiles')
+    logger.info("Upload profile picture: user_id=%s", current_user.id)
     img_url = S3Service.upload_image(image)
     UserRepository.update_profile(db, current_user.id, pic_url=img_url)
+    logger.info("Profile picture updated: user_id=%s", current_user.id)
     return {"url": img_url}
 
 
@@ -61,6 +65,7 @@ def add_new_address(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.info("Add address: user_id=%s", current_user.id)
     return UserRepository.add_address(db, current_user.id, addr_in)
 
 
@@ -68,6 +73,7 @@ def add_new_address(
 def list_my_addresses(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    logger.info("List addresses: user_id=%s", current_user.id)
     return db.query(Address).filter(Address.user_id == current_user.id).all()
 
 
@@ -77,15 +83,16 @@ def delete_address(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.info("Delete address: user_id=%s address_id=%s", current_user.id, address_id)
     addr = (
         db.query(Address)
         .filter(Address.id == address_id, Address.user_id == current_user.id)
         .first()
     )
     if not addr:
-        from fastapi import HTTPException
-
+        logger.warning("Address not found: address_id=%s user_id=%s", address_id, current_user.id)
         raise HTTPException(status_code=404, detail="Address not found")
     db.delete(addr)
     db.commit()
+    logger.info("Address deleted: address_id=%s", address_id)
     return {"detail": "Address deleted"}

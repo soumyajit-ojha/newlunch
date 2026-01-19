@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models.user import User, Profile, Address
 from app.schemas.user import UserCreate, AddressCreate
+from app.utils.log_config import logger
 
 
 class UserRepository:
@@ -50,4 +51,5 @@ class UserRepository:
         db.add(db_addr)
         db.commit()
         db.refresh(db_addr)
+        logger.info("UserRepository.add_address: user_id=%s address_id=%s", user_id, db_addr.id)
         return db_addr

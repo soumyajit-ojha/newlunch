@@ -1,7 +1,10 @@
+from urllib.parse import quote_plus
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+
 from app.core.config import settings
-from urllib.parse import quote_plus
+from app.utils.log_config import logger
+
 # Construct the URL
 DATABASE_URL = f"postgresql://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
 
@@ -17,10 +20,12 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-# Dependency for routes
 def get_db():
     db = SessionLocal()
     try:
         yield db
+    except Exception as e:
+        logger.exception("DB session error: %s", e)
+        raise
     finally:
         db.close()
