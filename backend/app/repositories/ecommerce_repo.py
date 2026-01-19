@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from app.models.ecommerce import Cart, CartItem, CartStatus, Wishlist
 from app.models.product import Product
+from app.utils.log_config import logger
 
 
 class EcommerceRepository:
@@ -17,6 +18,7 @@ class EcommerceRepository:
             db.add(cart)
             db.commit()
             db.refresh(cart)
+            logger.info("EcommerceRepository: created new cart for user_id=%s cart_id=%s", user_id, cart.id)
         return cart
 
     @staticmethod

@@ -7,6 +7,7 @@ from app.models.product import Product
 from app.models.ecommerce import CartItem
 from app.repositories.ecommerce_repo import EcommerceRepository
 from app.schemas.ecommerce import CartResponse, CartItemCreate, WishlistResponse
+from app.utils.log_config import logger
 from typing import List
 
 router = APIRouter()
@@ -18,6 +19,7 @@ router = APIRouter()
 def get_cart(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
+    logger.info("Get cart: user_id=%s", current_user.id)
     return EcommerceRepository.get_or_create_active_cart(db, current_user.id)
 
 
@@ -27,10 +29,12 @@ def add_to_cart(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.info("Add to cart: user_id=%s product_id=%s qty=%s", current_user.id, item_in.product_id, item_in.quantity)
     cart = EcommerceRepository.get_or_create_active_cart(db, current_user.id)
     product = db.query(Product).filter(Product.id == item_in.product_id).first()
 
     if not product or not product.is_active:
+        logger.warning("Product not available for cart: product_id=%s", item_in.product_id)
         raise HTTPException(status_code=404, detail="Product not available")
 
     # Check if item already exists in cart
@@ -52,6 +56,7 @@ def add_to_cart(
 
     db.commit()
     EcommerceRepository.update_cart_total(db, cart)
+    logger.info("Added to cart: user_id=%s product_id=%s", current_user.id, item_in.product_id)
     return cart
 
 
@@ -61,15 +66,18 @@ def remove_from_cart(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.info("Remove from cart: user_id=%s item_id=%s", current_user.id, item_id)
     cart = EcommerceRepository.get_or_create_active_cart(db, current_user.id)
     item = db.query(CartItem).filter_by(id=item_id, cart_id=cart.id).first()
 
     if not item:
+        logger.warning("Cart item not found: item_id=%s user_id=%s", item_id, current_user.id)
         raise HTTPException(status_code=404, detail="Item not found in cart")
 
     db.delete(item)
     db.commit()
     EcommerceRepository.update_cart_total(db, cart)
+    logger.info("Removed from cart: item_id=%s", item_id)
     return {"detail": "Item removed"}
 
 
@@ -82,7 +90,9 @@ def toggle_wishlist(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    logger.info("Wishlist toggle: user_id=%s product_id=%s", current_user.id, product_id)
     added = EcommerceRepository.toggle_wishlist(db, current_user.id, product_id)
+    logger.info("Wishlist updated: user_id=%s product_id=%s is_wishlisted=%s", current_user.id, product_id, added)
     return {"is_wishlisted": added, "message": "Wishlist updated"}
 
 
@@ -92,4 +102,7 @@ def get_wishlist(
 ):
     from app.models.ecommerce import Wishlist
 
-    return db.query(Wishlist).filter_by(user_id=current_user.id).all()
+    logger.info("Get wishlist: user_id=%s", current_user.id)
+    items = db.query(Wishlist).filter_by(user_id=current_user.id).all()
+    logger.info("Wishlist: %d items for user_id=%s", len(items), current_user.id)
+    return items

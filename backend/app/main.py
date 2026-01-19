@@ -1,16 +1,11 @@
-import logging
-
+import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from app.routers.v1 import auth, products, ecommerce, profile
 from app.db.session import engine
-
-
-# logger-configuration
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from app.utils.log_config import logger
 
 
 # setup fastapi lifespan
@@ -18,13 +13,13 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     logger.info("Application started.")
     try:
-        with engine.connect() as connection:
+        with engine.connect() as conn:
             logger.info("DB connected successfully.")
     except Exception as e:
-        logger.error("Error to connect DB.", str(e))
+        logger.error("Error connecting to DB: %s", e)
 
-    yield  # the node point (BEFORE_block: run at application startup, AFTER_block: run at application shutdoen)
-    logger.info("Application Shuted down.")
+    yield  # BEFORE: startup, AFTER: shutdown
+    logger.info("Application shut down.")
 
     # db connection close
     engine.dispose()
@@ -50,6 +45,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    client = request.client.host if request.client else "unknown"
+    logger.info(
+        "%s %s %s | %s | %.2fms",
+        request.method,
+        request.url.path,
+        response.status_code,
+        client,
+        duration_ms,
+    )
+    return response
+
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
