@@ -1,6 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, Field, model_validator
+from typing import Optional
 from app.models.user import UserRole, AddressType
+
 
 # from_attributes: Allows Pydantic to read SQLAlchemy models
 # User-Auth Schemas
@@ -62,6 +63,8 @@ class AddressResponse(AddressBase):
 
 # --- Profile Schemas ---
 class ProfileUpdate(BaseModel):
+    first_name: str
+    last_name: str
     gender: Optional[str] = None
     # Note: Profile picture is handled via File Upload, not JSON
 
@@ -73,18 +76,20 @@ class ProfileUpdate(BaseModel):
 #     class Config:
 #         from_attributes = True
 
+
 class ProfileResponse(UserBase):
     id: int
     gender: Optional[str] = None
     profile_picture: Optional[str] = None
 
+    @model_validator(mode="before")
     @classmethod
     def model_validate(cls, obj):
         # This helper maps the nested profile data to the flat schema
-        if hasattr(obj, 'profile') and obj.profile:
-            obj.gender = obj.profile.gender
-            obj.profile_picture = obj.profile.profile_picture
-        return super().model_validate(obj)
+        if hasattr(obj, "profile") and obj.profile:
+            setattr(obj, 'gender', obj.profile.gender)
+            setattr(obj, 'profile_picture', obj.profile.profile_picture)
+        return obj
 
     class Config:
         from_attributes = True

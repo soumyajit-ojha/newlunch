@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from app.models.user import User, Profile, Address
 from app.schemas.user import UserCreate, AddressCreate
 from app.utils.log_config import logger
@@ -24,33 +24,62 @@ class UserRepository:
         db.refresh(db_user)
         return db_user
 
-    # @staticmethod
-    # def get_profile(db: Session, user_id: int):
-    #     return db.query(Profile).filter(Profile.user_id == user_id).first()
-
     @staticmethod
-    def get_full_profile(db: Session, user_id: int):
-        # Query the User; profile data is available via user.profile
-        profile_data = db.query(User).filter(User.id == user_id).first()
-        # print([i for i in profile_data])
-        return profile_data
-
-    @staticmethod
-    def update_profile(
-        db: Session, user_id: int, gender: str = None, pic_url: str = None
-    ):
-        profile = db.query(Profile).filter(Profile.user_id == user_id).first()
-        # Create profile if it doesn't exist
-        if not profile:
-            profile = Profile(user_id=user_id, gender=None, profile_picture=None)
-            db.add(profile)
-        if gender:
-            profile.gender = gender
-        if pic_url:
-            profile.profile_picture = pic_url
-        db.commit()
-        db.refresh(profile)
+    def get_user_with_profile(db: Session, user_id: int) -> User:
+        """Fetches the User along with their profile relationship"""
+        # return db.query(User).filter(User.id == user_id).first()
+        profile = (
+            db.query(User)
+            .options(joinedload(User.profile))
+            .filter(User.id == user_id)
+            .first()
+        )
+        print("profile", profile.profile.profile_picture)
         return profile
+
+    @staticmethod
+    def update_user_and_profile(db: Session, user_id: int, update_data: dict):
+        """Updates both User and Profile tables"""
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return None
+
+        # 1. Update User Table Fields
+        if "first_name" in update_data:
+            user.first_name = update_data["first_name"]
+        if "last_name" in update_data:
+            user.last_name = update_data["last_name"]
+
+        # 2. Update or Create Profile Table Fields
+        profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+        if not profile:
+            profile = Profile(user_id=user_id)
+            db.add(profile)
+
+        if "gender" in update_data:
+            profile.gender = update_data["gender"]
+        if "pic_url" in update_data:
+            profile.profile_picture = update_data["pic_url"]
+
+        db.commit()
+        db.refresh(user)
+        db.refresh(profile)
+        return db.query(User).options(joinedload(User.profile)).get(user_id)
+
+    # @staticmethod
+    # def update_profile_pic(
+    #     db: Session, user_id: int, gender: str = None, pic_url: str = None
+    # ):
+    #     profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+    #     # Create profile if it doesn't exist
+    #     if not profile:
+    #         profile = Profile(user_id=user_id, gender=None, profile_picture=pic_url )
+    #         db.add(profile)
+    #     else:
+    #         profile.profile_picture = pic_url
+    #     db.commit()
+    #     db.refresh(profile)
+    #     return profile
 
     @staticmethod
     def add_address(db: Session, user_id: int, addr_in: AddressCreate):
