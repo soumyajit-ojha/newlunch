@@ -7,10 +7,19 @@ from app.utils.log_config import logger
 class UserRepository:
     @staticmethod
     def get_by_email(db: Session, email: str) -> User:
-        return db.query(User).filter(User.email == email).first()
+        logger.info("UserRepository.get_by_email: email=%s", email)
+        user = db.query(User).filter(User.email == email).first()
+        if user:
+            logger.info("UserRepository.get_by_email: found user_id=%s", user.id)
+        else:
+            logger.info("UserRepository.get_by_email: user not found")
+        return user
 
     @staticmethod
     def create(db: Session, user_in: UserCreate, hashed_password: str) -> User:
+        logger.info(
+            "UserRepository.create: email=%s role=%s", user_in.email, user_in.role
+        )
         db_user = User(
             email=user_in.email,
             first_name=user_in.first_name,
@@ -22,26 +31,40 @@ class UserRepository:
         db.add(db_user)
         db.commit()
         db.refresh(db_user)
+        logger.info("UserRepository.create: created user_id=%s", db_user.id)
         return db_user
 
     @staticmethod
     def get_user_with_profile(db: Session, user_id: int) -> User:
         """Fetches the User along with their profile relationship"""
-        # return db.query(User).filter(User.id == user_id).first()
+        logger.info("UserRepository.get_user_with_profile: user_id=%s", user_id)
         profile = (
             db.query(User)
             .options(joinedload(User.profile))
             .filter(User.id == user_id)
             .first()
         )
-        print("profile", profile.profile.profile_picture)
+        if profile and profile.profile:
+            logger.info(
+                "UserRepository.get_user_with_profile: found profile for user_id=%s",
+                user_id,
+            )
         return profile
 
     @staticmethod
     def update_user_and_profile(db: Session, user_id: int, update_data: dict):
         """Updates both User and Profile tables"""
+        logger.info(
+            "UserRepository.update_user_and_profile: user_id=%s data=%s",
+            user_id,
+            update_data,
+        )
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
+            logger.warning(
+                "UserRepository.update_user_and_profile: user not found user_id=%s",
+                user_id,
+            )
             return None
 
         # 1. Update User Table Fields
@@ -53,6 +76,10 @@ class UserRepository:
         # 2. Update or Create Profile Table Fields
         profile = db.query(Profile).filter(Profile.user_id == user_id).first()
         if not profile:
+            logger.info(
+                "UserRepository.update_user_and_profile: creating new profile for user_id=%s",
+                user_id,
+            )
             profile = Profile(user_id=user_id)
             db.add(profile)
 
@@ -64,6 +91,9 @@ class UserRepository:
         db.commit()
         db.refresh(user)
         db.refresh(profile)
+        logger.info(
+            "UserRepository.update_user_and_profile: updated user_id=%s", user_id
+        )
         return db.query(User).options(joinedload(User.profile)).get(user_id)
 
     # @staticmethod
