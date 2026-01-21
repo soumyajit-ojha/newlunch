@@ -22,7 +22,7 @@ def get_my_profile(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     logger.info("Get profile: user_id=%s", current_user.id)
-    profile = UserRepository.get_full_profile(db, current_user.id)
+    profile = UserRepository.get_user_with_profile(db, current_user.id)
     if not profile:
         from app.models.user import Profile
 
@@ -34,18 +34,30 @@ def get_my_profile(
     return profile
 
 
+# @router.put("/profile", response_model=ProfileResponse)
+# def update_my_profile(
+#     data: ProfileUpdate,
+#     current_user: User = Depends(get_current_user),
+#     db: Session = Depends(get_db),
+# ):
+#     logger.info("Update profile: user_id=%s", current_user.id)
+#     try:
+#         return UserRepository.update_profile(db, current_user.id, gender=data.gender)
+#     except Exception as e:
+#         print("Error", str(e))
+#         return None
+
+
 @router.put("/profile", response_model=ProfileResponse)
 def update_my_profile(
     data: ProfileUpdate,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    logger.info("Update profile: user_id=%s", current_user.id)
-    try:
-        return UserRepository.update_profile(db, current_user.id, gender=data.gender)
-    except Exception as e:
-        print("Error", str(e))
-        return None
+    updated_user = UserRepository.update_user_and_profile(
+        db, user_id=current_user.id, update_data=data.model_dump(exclude_unset=True)
+    )
+    return updated_user
 
 
 @router.put("/profile/picture")
@@ -55,7 +67,7 @@ async def upload_profile_pic(
     db: Session = Depends(get_db),
 ):
     logger.info("Upload profile picture: user_id=%s", current_user.id)
-    img_url = S3Service.upload_image(image)
+    img_url = S3Service.upload_image(image, max_file_size = 5)
     UserRepository.update_profile(db, current_user.id, pic_url=img_url)
     logger.info("Profile picture updated: user_id=%s", current_user.id)
     return {"url": img_url}
