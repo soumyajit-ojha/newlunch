@@ -66,9 +66,25 @@ class ProfileUpdate(BaseModel):
     # Note: Profile picture is handled via File Upload, not JSON
 
 
-class ProfileResponse(BaseModel):
-    gender: Optional[str]
-    profile_picture: Optional[str]
+# class ProfileResponse(BaseModel):
+#     gender: Optional[str]
+#     profile_picture: Optional[str]
+
+#     class Config:
+#         from_attributes = True
+
+class ProfileResponse(UserBase):
+    id: int
+    gender: Optional[str] = None
+    profile_picture: Optional[str] = None
+
+    @classmethod
+    def model_validate(cls, obj):
+        # This helper maps the nested profile data to the flat schema
+        if hasattr(obj, 'profile') and obj.profile:
+            obj.gender = obj.profile.gender
+            obj.profile_picture = obj.profile.profile_picture
+        return super().model_validate(obj)
 
     class Config:
         from_attributes = True

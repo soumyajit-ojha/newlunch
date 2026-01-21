@@ -24,9 +24,16 @@ class UserRepository:
         db.refresh(db_user)
         return db_user
 
+    # @staticmethod
+    # def get_profile(db: Session, user_id: int):
+    #     return db.query(Profile).filter(Profile.user_id == user_id).first()
+
     @staticmethod
-    def get_profile(db: Session, user_id: int):
-        return db.query(Profile).filter(Profile.user_id == user_id).first()
+    def get_full_profile(db: Session, user_id: int):
+        # Query the User; profile data is available via user.profile
+        profile_data = db.query(User).filter(User.id == user_id).first()
+        # print([i for i in profile_data])
+        return profile_data
 
     @staticmethod
     def update_profile(
@@ -51,5 +58,7 @@ class UserRepository:
         db.add(db_addr)
         db.commit()
         db.refresh(db_addr)
-        logger.info("UserRepository.add_address: user_id=%s address_id=%s", user_id, db_addr.id)
+        logger.info(
+            "UserRepository.add_address: user_id=%s address_id=%s", user_id, db_addr.id
+        )
         return db_addr

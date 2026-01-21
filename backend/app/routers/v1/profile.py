@@ -22,9 +22,10 @@ def get_my_profile(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     logger.info("Get profile: user_id=%s", current_user.id)
-    profile = UserRepository.get_profile(db, current_user.id)
+    profile = UserRepository.get_full_profile(db, current_user.id)
     if not profile:
         from app.models.user import Profile
+
         logger.info("Creating default profile for user_id=%s", current_user.id)
         profile = Profile(user_id=current_user.id, gender=None, profile_picture=None)
         db.add(profile)
@@ -40,7 +41,11 @@ def update_my_profile(
     db: Session = Depends(get_db),
 ):
     logger.info("Update profile: user_id=%s", current_user.id)
-    return UserRepository.update_profile(db, current_user.id, gender=data.gender)
+    try:
+        return UserRepository.update_profile(db, current_user.id, gender=data.gender)
+    except Exception as e:
+        print("Error", str(e))
+        return None
 
 
 @router.put("/profile/picture")
@@ -90,7 +95,9 @@ def delete_address(
         .first()
     )
     if not addr:
-        logger.warning("Address not found: address_id=%s user_id=%s", address_id, current_user.id)
+        logger.warning(
+            "Address not found: address_id=%s user_id=%s", address_id, current_user.id
+        )
         raise HTTPException(status_code=404, detail="Address not found")
     db.delete(addr)
     db.commit()
