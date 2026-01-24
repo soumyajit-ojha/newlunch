@@ -23,7 +23,9 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 @router.post("/login", response_model=Token)
 def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
     logger.info("User login attempt: %s", user_credentials.email)
-    token_data = AuthService.login_user(db, user_credentials.email, user_credentials.password)
+    token_data = AuthService.login_user(
+        db, user_credentials.email, user_credentials.password
+    )
     logger.info("User logged in successfully: %s", user_credentials.email)
     return token_data
 

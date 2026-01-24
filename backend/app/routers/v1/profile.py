@@ -87,7 +87,9 @@ async def upload_profile_pic(
 ):
     logger.info("Upload profile picture: user_id=%s", current_user.id)
     img_url = S3Service.upload_image(image, max_file_size=5)
-    UserRepository.update_profile(db, current_user.id, pic_url=img_url)
+    data = {"pic_url": img_url}
+    print("data", data)
+    UserRepository.update_user_and_profile(db, current_user.id, update_data=data)
     logger.info("Profile picture updated: user_id=%s", current_user.id)
     return {"url": img_url}
 
