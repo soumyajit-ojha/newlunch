@@ -18,7 +18,11 @@ class EcommerceRepository:
             db.add(cart)
             db.commit()
             db.refresh(cart)
-            logger.info("EcommerceRepository: created new cart for user_id=%s cart_id=%s", user_id, cart.id)
+            logger.info(
+                "EcommerceRepository: created new cart for user_id=%s cart_id=%s",
+                user_id,
+                cart.id,
+            )
         return cart
 
     @staticmethod
@@ -26,6 +30,9 @@ class EcommerceRepository:
         total = sum(item.price_at_addition * item.quantity for item in cart.items)
         cart.total_amount = total
         db.commit()
+        logger.info(
+            "EcommerceRepository.update_cart_total: cart_id=%s total=%s", cart.id, total
+        )
 
     @staticmethod
     def toggle_wishlist(db: Session, user_id: int, product_id: int):

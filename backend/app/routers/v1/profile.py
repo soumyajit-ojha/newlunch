@@ -54,10 +54,29 @@ def update_my_profile(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    updated_user = UserRepository.update_user_and_profile(
-        db, user_id=current_user.id, update_data=data.model_dump(exclude_unset=True)
+    logger.info(
+        "Update profile: user_id=%s data=%s",
+        current_user.id,
+        data.model_dump(exclude_unset=True),
     )
-    return updated_user
+    try:
+        updated_user = UserRepository.update_user_and_profile(
+            db, user_id=current_user.id, update_data=data.model_dump(exclude_unset=True)
+        )
+        if not updated_user:
+            logger.error(
+                "Profile update failed: user not found user_id=%s", current_user.id
+            )
+            raise HTTPException(status_code=404, detail="User not found")
+        logger.info("Profile updated successfully: user_id=%s", current_user.id)
+        return updated_user
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Profile update error: user_id=%s error=%s", current_user.id, str(e)
+        )
+        raise HTTPException(status_code=500, detail="Failed to update profile")
 
 
 @router.put("/profile/picture")
@@ -67,7 +86,7 @@ async def upload_profile_pic(
     db: Session = Depends(get_db),
 ):
     logger.info("Upload profile picture: user_id=%s", current_user.id)
-    img_url = S3Service.upload_image(image, max_file_size = 5)
+    img_url = S3Service.upload_image(image, max_file_size=5)
     UserRepository.update_profile(db, current_user.id, pic_url=img_url)
     logger.info("Profile picture updated: user_id=%s", current_user.id)
     return {"url": img_url}

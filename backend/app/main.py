@@ -50,18 +50,49 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.perf_counter()
-    response = await call_next(request)
-    duration_ms = (time.perf_counter() - start) * 1000
-    client = request.client.host if request.client else "unknown"
-    logger.info(
-        "%s %s %s | %s | %.2fms",
-        request.method,
-        request.url.path,
-        response.status_code,
-        client,
-        duration_ms,
-    )
-    return response
+    try:
+        response = await call_next(request)
+        duration_ms = (time.perf_counter() - start) * 1000
+        client = request.client.host if request.client else "unknown"
+        logger.info(
+            "%s %s %s | %s | %.2fms",
+            request.method,
+            request.url.path,
+            response.status_code,
+            client,
+            duration_ms,
+        )
+        return response
+    except Exception as e:
+        duration_ms = (time.perf_counter() - start) * 1000
+        client = request.client.host if request.client else "unknown"
+        logger.error(
+            "Request failed: %s %s | %s | %.2fms | Error: %s",
+            request.method,
+            request.url.path,
+            client,
+            duration_ms,
+            str(e),
+            exc_info=True,
+        )
+        raise
+
+
+@app.middleware("http")
+async def exception_handler(request: Request, call_next):
+    """Catch and log all uncaught exceptions"""
+    try:
+        return await call_next(request)
+    except Exception as e:
+        logger.critical(
+            "Uncaught exception: %s %s | Error: %s",
+            request.method,
+            request.url.path,
+            str(e),
+            exc_info=True,
+        )
+        # Re-raise to let FastAPI's default error handler deal with it
+        raise
 
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
