@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     AWS_REGION: str
     AWS_S3_BUCKET_NAME: str
 
+    # Payment Gateway
+    PAYMENT_GATEWAY_URL: str
+    PAYMENT_GATEWAY_API_KEY: str
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

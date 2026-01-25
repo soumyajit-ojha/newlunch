@@ -8,6 +8,10 @@ class CartItemCreate(BaseModel):
     quantity: int = 1
 
 
+class CartItemUpdate(BaseModel):
+    quantity: int
+
+
 class CartItemResponse(BaseModel):
     id: int
     product_id: Optional[int]
