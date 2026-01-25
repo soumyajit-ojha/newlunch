@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     AWS_REGION: str
     AWS_S3_BUCKET_NAME: str
 
+    # Stripe Configuration
+    STRIPE_SECRET_KEY: str
+    STRIPE_WEBHOOK_SECRET: str
+
+    # Payment Gateway
+    # PAYMENT_GATEWAY_URL: str
+    # PAYMENT_GATEWAY_API_KEY: str
+
     model_config = SettingsConfigDict(env_file=".env")
 
 

@@ -7,9 +7,16 @@ from alembic import context
 # 1. Import your settings and Base
 from urllib.parse import quote_plus
 from app.core.config import settings
-from app.db.base import Base 
+from app.db.base import Base
 from app.models.user import User
 from app.models.product import Product
+from app.models.orders import (
+    Order,
+    OrderItem,
+    PaymentAttempt,
+    PaymentAttemptStatus,
+    OrderStatus,
+)
 
 
 DATABASE_URL = f"postgresql://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
@@ -73,9 +80,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()
