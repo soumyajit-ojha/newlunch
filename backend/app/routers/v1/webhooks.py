@@ -1,48 +1,56 @@
-from fastapi import APIRouter, Request, Header, Depends, HTTPException
-from sqlalchemy.orm import Session
-from app.db.session import get_db
-from app.services.stripe_service import StripeService
-from app.services.order_service import OrderService
+import stripe
 import logging
+from fastapi import APIRouter, Request, Header, HTTPException, Depends
+from sqlalchemy.orm import Session
+from app.core.config import settings
+from app.db.session import get_db
+from app.services.order_service import OrderService
 
 logger = logging.getLogger("sellphone.webhooks")
 router = APIRouter()
 
+# Official Stripe Secret Key
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
 
 @router.post("/stripe")
-async def stripe_webhook(
+async def handle_stripe_webhook(
     request: Request,
     stripe_signature: str = Header(None),
     db: Session = Depends(get_db),
 ):
+    """
+    The Official Entry Point for Stripe signals.
+    """
     payload = await request.body()
 
-    # 1. Verify the event
-    event = StripeService.verify_webhook(payload, stripe_signature)
-    if not event:
+    try:
+        # 1. Verify that this signal REALLY came from Stripe
+        event = stripe.Webhook.construct_event(
+            payload, stripe_signature, settings.STRIPE_WEBHOOK_SECRET
+        )
+    except Exception as e:
+        logger.error(f"Webhook Signature Verification Failed: {str(e)}")
         raise HTTPException(status_code=400, detail="Invalid signature")
 
-    # 2. Handle Payment Success
+    # 2. Extract Data from Event
     if event["type"] == "payment_intent.succeeded":
-        intent = event["data"]["object"]
-        order_id = intent["metadata"].get("order_id")
+        payment_intent = event["data"]["object"]  # Stripe object
 
-        if order_id:
-            # ATOMIC UPDATE: Confirm Order & Deduct Stock
-            processed = OrderService.finalize_payment_success(db, int(order_id))
-            if processed:
-                logger.info(f"✅ Order {order_id} successfully confirmed via Webhook")
-            else:
-                logger.warning(
-                    f"⚠️ Webhook received for order {order_id} but it was already processed."
-                )
+        # This is the pi_... ID you saw in your logs
+        stripe_intent_id = payment_intent["id"]
 
-    # 3. Handle Payment Failure
+        logger.info(f"💰 Webhook: Payment received for {stripe_intent_id}")
+
+        # 3. Trigger Fulfillment Logic
+        # We use the Stripe ID to find our PaymentAttempt record
+        success = OrderService.finalize_payment_success(db, stripe_intent_id)
+
+        if not success:
+            logger.error(f"Fulfillment failed for Stripe ID: {stripe_intent_id}")
+
     elif event["type"] == "payment_intent.payment_failed":
-        intent = event["data"]["object"]
-        order_id = intent["metadata"].get("order_id")
-        if order_id:
-            OrderService.handle_payment_failure(db, int(order_id))
-            logger.error(f"❌ Payment failed for Order {order_id}")
+        payment_intent = event["data"]["object"]
+        OrderService.handle_payment_failure(db, payment_intent["id"])
 
     return {"status": "success"}

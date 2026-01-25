@@ -135,7 +135,9 @@ class OrderService:
                 .first()
             )
             if not attempt:
-                logger.error(f"Payment success for unknown intent: {stripe_intent_id}")
+                logger.error(
+                    f"Fulfillment failed: No local record found for Stripe ID {stripe_intent_id}"
+                )
                 return False
 
             if attempt.status == PaymentAttemptStatus.SUCCESS:
@@ -153,12 +155,7 @@ class OrderService:
                     .first()
                 )
                 if product:
-                    if product.stock >= item.quantity:
-                        product.stock -= item.quantity
-                    else:
-                        logger.critical(
-                            f"OVERSELL ALERT: Order {order.id} paid but Product {product.id} out of stock!"
-                        )
+                    product.stock -= item.quantity
 
             # 4. UPDATE STATUSES
             order.order_status = OrderStatus.CONFIRMED
