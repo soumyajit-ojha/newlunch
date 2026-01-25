@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from app.routers.v1 import auth, products, ecommerce, profile, orders
+from app.routers.v1 import auth, products, ecommerce, profile, orders, webhooks
 from app.db.session import engine
 from app.utils.log_config import logger
 
@@ -100,3 +100,4 @@ app.include_router(profile.router, prefix="/api/v1/user", tags=["User Profile"])
 app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])
 app.include_router(ecommerce.router, prefix="/api/v1/shop", tags=["E-commerce"])
 app.include_router(orders.router, prefix="/api/v1/orders", tags=["Orders"])
+app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["Webhooks"])

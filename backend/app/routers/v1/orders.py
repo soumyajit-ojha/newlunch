@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Body, Header, HTTPException
 from sqlalchemy.orm import Session
+from app.core.config import settings
 from app.db.session import get_db
 from app.routers.deps import get_current_user
 from app.services.order_service import OrderService
@@ -12,7 +13,7 @@ router = APIRouter()
 
 
 @router.post("/checkout")
-async def create_order(
+async def initiate_checkout(
     req: CheckoutRequest, db: Session = Depends(get_db), user=Depends(get_current_user)
 ):
     return await OrderService.initiate_checkout(

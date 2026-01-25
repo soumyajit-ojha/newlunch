@@ -1,4 +1,4 @@
-import httpx
+import stripe
 import uuid
 import logging
 from sqlalchemy.orm import Session
@@ -7,67 +7,77 @@ from app.models.orders import PaymentAttempt, PaymentAttemptStatus
 
 logger = logging.getLogger("sellphone.payments")
 
+# Use your Stripe Secret Key directly
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
 
 class PaymentService:
     @staticmethod
-    async def create_remote_intent(db: Session, order, user):
+    async def create_payment_intent(db: Session, order, user):
         """
-        SELLPHONE APP: Initiates the request to the S2S Gateway.
+        DIRECT STRIPE INTEGRATION:
+        Creates a PaymentIntent directly on Stripe's servers.
         """
-        # 1. Generate Unique Strings (Consistently formatted)
-        # We include the order.id at the start so the Gateway can easily parse it
-        ext_order_id = f"ORD-{order.id}-{uuid.uuid4().hex[:6]}"
-        ext_cust_id = f"CUST-{user.id}"
-        idem_key = str(uuid.uuid4())
+        # 1. Generate local identifiers
+        # We still generate an external_order_id for our own internal tracking
+        ext_order_id = f"SP-ORD-{order.id}-{uuid.uuid4().hex[:6]}"
 
-        # 2. Audit Trail: Record the attempt BEFORE calling the gateway
-        attempt = PaymentAttempt(
-            order_id=order.id,
-            external_order_id=ext_order_id,
-            external_customer_id=ext_cust_id,
-            idempotency_key=idem_key,
-            amount=order.total_amount,
-            currency="USD",
-        )
-        db.add(attempt)
-        db.commit()
+        try:
+            # 2. Call Stripe API
+            # Stripe amount is in cents (integer)
+            amount_in_cents = int(order.total_amount * 100)
 
-        # 3. Call Remote Payment App
-        async with httpx.AsyncClient() as client:
-            payload = {
-                "external_order_id": ext_order_id,
-                "external_customer_id": ext_cust_id,
-                "amount": int(order.total_amount),
-                "currency": "USD",
-                "provider": "STRIPE",
-                "idempotency_key": idem_key,
+            logger.info(f"Initiating direct Stripe PaymentIntent for Order {order.id}")
+
+            intent = stripe.PaymentIntent.create(
+                amount=amount_in_cents,
+                currency="usd",
+                description=f"Payment for Order #{order.id}",
+                metadata={
+                    "order_id": order.id,
+                    "external_order_id": ext_order_id,
+                    "user_id": user.id,
+                },
+                # Stripe handles idempotency natively if we provide a key
+                idempotency_key=str(uuid.uuid4()),
+                automatic_payment_methods={"enabled": True},
+            )
+
+            # 3. Audit Trail: Record the attempt with Stripe's ID (pi_...)
+            attempt = PaymentAttempt(
+                order_id=order.id,
+                external_order_id=intent.id,  # Link directly to Stripe ID
+                external_customer_id=f"CUST-{user.id}",
+                idempotency_key=intent.id,
+                amount=order.total_amount,
+                currency="USD",
+                status=PaymentAttemptStatus.PROCESSING,
+                gateway_response=intent,  # Store the Stripe object for debugging
+            )
+            db.add(attempt)
+            db.commit()
+
+            return {
+                "client_secret": intent.client_secret,
+                "provider_transaction_id": intent.id,
+                "status": intent.status.upper(),
             }
-            headers = {"x-api-key": settings.PAYMENT_GATEWAY_API_KEY}
 
-            try:
-                logger.info(f"Requesting Payment Intent for Order {order.id}")
-                response = await client.post(
-                    f"{settings.PAYMENT_GATEWAY_URL}/payment/intent",
-                    json=payload,
-                    headers=headers,
-                    timeout=30.0,
-                )
-
-                res_data = response.json()
-                attempt.gateway_response = res_data
-
-                if response.status_code in [200, 201]:
-                    attempt.status = PaymentAttemptStatus.PROCESSING
-                    db.commit()
-                    return res_data  # Contains Stripe client_secret
-
-                logger.error(f"Gateway rejected request: {response.text}")
-                attempt.status = PaymentAttemptStatus.FAILED
-                db.commit()
-                return None
-
-            except Exception as e:
-                logger.error(f"S2S Connection Failed: {str(e)}")
-                attempt.status = PaymentAttemptStatus.FAILED
-                db.commit()
-                return None
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe API Failure: {str(e)}")
+            # Record failed attempt locally
+            attempt = PaymentAttempt(
+                order_id=order.id,
+                external_order_id=f"FAILED-{uuid.uuid4().hex[:6]}",
+                amount=order.total_amount,
+                status=PaymentAttemptStatus.FAILED,
+                gateway_response={"error": str(e)},
+            )
+            db.add(attempt)
+            db.commit()
+            return None
+        except Exception as e:
+            logger.critical(
+                f"Unexpected Payment System Failure: {str(e)}", exc_info=True
+            )
+            return None
